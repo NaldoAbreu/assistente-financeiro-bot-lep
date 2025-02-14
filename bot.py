@@ -1,7 +1,11 @@
 import logging
+import os
+from threading import Thread
+from datetime import datetime, timedelta
+
+from flask import Flask
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-from datetime import datetime, timedelta
 
 # Configuração do log
 logging.basicConfig(
@@ -74,8 +78,25 @@ def interpretar_mensagem(update: Update, context: CallbackContext):
     else:
         registrar_gasto(update, context)
 
-# Função principal para iniciar o bot
+# --- Configuração do servidor dummy Flask ---
+app = Flask(__name__)
+
+@app.route('/')
+def home():
+    return "OK", 200
+
+def run_flask():
+    port = int(os.environ.get('PORT', 5000))
+    app.run(host='0.0.0.0', port=port)
+
+# --- Função principal para iniciar o bot ---
 def main():
+    # Inicia o servidor Flask dummy em uma thread separada
+    flask_thread = Thread(target=run_flask)
+    flask_thread.daemon = True
+    flask_thread.start()
+    
+    # Token do bot (lembre-se de mantê-lo seguro)
     token = '8179383930:AAFOkb050TIkrG3Ko7lWgIbBWMQ2yHEN4sA'
     updater = Updater(token, use_context=True)
     dp = updater.dispatcher
@@ -88,3 +109,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
