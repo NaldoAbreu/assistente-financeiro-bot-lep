@@ -107,7 +107,12 @@ def set_webhook():
     else:
         logger.error("Falha ao configurar webhook!")
 
-if __name__ == "__main__":
+# Configura o webhook antes do primeiro request (útil quando rodando com Gunicorn)
+@app.before_first_request
+def init_webhook():
     set_webhook()
+
+# Se for executado diretamente, inicia o servidor (não é chamado pelo Gunicorn)
+if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8443))
     app.run(host="0.0.0.0", port=port)
