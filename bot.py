@@ -1,11 +1,10 @@
 import logging
 import os
 from threading import Thread
+from flask import Flask, request
+from telegram import Update, Bot
+from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters, CallbackContext
 from datetime import datetime, timedelta
-
-from flask import Flask
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
 
 # Configuração do log
 logging.basicConfig(
@@ -13,10 +12,20 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Token do bot e URL do Render
+TOKEN = "8179383930:AAFOkb050TIkrG3Ko7lWgIbBWMQ2yHEN4sA"
+WEBHOOK_URL = "https://SEU-SUBDOMINIO-DO-RENDER.onrender.com/"  # Substitua pelo seu URL
+
+bot = Bot(TOKEN)
+app = Flask(__name__)
+
+# Configuração do Dispatcher
+dispatcher = Dispatcher(bot, None, use_context=True)
+
 # Dicionário para armazenar os gastos
 gastos = []
 
-# Função que responde ao comando /start
+# --- Funções do bot ---
 def start(update: Update, context: CallbackContext):
     update.message.reply_text(
         "Olá! Sou o Assistente Financeiro.\n"
@@ -28,7 +37,6 @@ def start(update: Update, context: CallbackContext):
         "- 'me envie os gastos mensais'"
     )
 
-# Função para registrar gastos
 def registrar_gasto(update: Update, context: CallbackContext):
     text = update.message.text.strip()
     partes = text.rsplit(" ", 1)  # Divide pelo último espaço
@@ -42,7 +50,6 @@ def registrar_gasto(update: Update, context: CallbackContext):
     gastos.append({"item": item, "valor": valor, "data": data})
     update.message.reply_text(f"Gasto registrado: {item} - R$ {valor}")
 
-# Função para gerar relatório
 def gerar_relatorio(update: Update, periodo: str):
     agora = datetime.now()
     if periodo == "diário":
@@ -66,7 +73,6 @@ def gerar_relatorio(update: Update, periodo: str):
     relatorio += f"\nTotal: R$ {total}"
     update.message.reply_text(relatorio)
 
-# Função para interpretar mensagens
 def interpretar_mensagem(update: Update, context: CallbackContext):
     text = update.message.text.lower()
     if "gastos diários" in text:
@@ -78,35 +84,25 @@ def interpretar_mensagem(update: Update, context: CallbackContext):
     else:
         registrar_gasto(update, context)
 
-# --- Configuração do servidor dummy Flask ---
-app = Flask(__name__)
+# Adiciona os handlers ao Dispatcher
+dispatcher.add_handler(CommandHandler("start", start))
+dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, interpretar_mensagem))
 
-@app.route('/')
+# --- Configuração do Flask ---
+@app.route("/", methods=["GET"])
 def home():
+    return "Bot está rodando!", 200
+
+@app.route(f"/{TOKEN}", methods=["POST"])
+def webhook():
+    update = Update.de_json(request.get_json(), bot)
+    dispatcher.process_update(update)
     return "OK", 200
 
-def run_flask():
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+def set_webhook():
+    bot.set_webhook(url=WEBHOOK_URL + TOKEN)
 
-# --- Função principal para iniciar o bot ---
-def main():
-    # Inicia o servidor Flask dummy em uma thread separada
-    flask_thread = Thread(target=run_flask)
-    flask_thread.daemon = True
-    flask_thread.start()
-    
-    # Token do bot (lembre-se de mantê-lo seguro)
-    token = '8179383930:AAFOkb050TIkrG3Ko7lWgIbBWMQ2yHEN4sA'
-    updater = Updater(token, use_context=True)
-    dp = updater.dispatcher
-
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, interpretar_mensagem))
-
-    updater.start_polling()
-    updater.idle()
-
-if __name__ == '__main__':
-    main()
-
+if __name__ == "__main__":
+    set_webhook()  # Define o webhook no Telegram
+    port = int(os.environ.get("PORT", 8443))
+    app.run(host="0.0.0.0", port=port)
