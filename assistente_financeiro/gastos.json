@@ -1,0 +1,27 @@
+[
+    {
+        "item": "Camiseta",
+        "valor": 200.0,
+        "data": "2025-02-13 14:29:43"
+    },
+    {
+        "item": "Cal\u00e7a",
+        "valor": 700.0,
+        "data": "2025-02-13 14:31:01"
+    },
+    {
+        "item": "Cal\u00e7a",
+        "valor": 500,
+        "data": "2025-02-13"
+    },
+    {
+        "item": "Camiseta",
+        "valor": 200,
+        "data": "2025-02-13"
+    },
+    {
+        "item": "Bon\u00e9",
+        "valor": 50,
+        "data": "2025-02-13"
+    }
+]
