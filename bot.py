@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 # Token do bot e URL do Render
 TOKEN = "8179383930:AAFOkb050TIkrG3Ko7lWgIbBWMQ2yHEN4sA"
-WEBHOOK_URL = "https://SEU-SUBDOMINIO-DO-RENDER.onrender.com/"  # Substitua pelo seu URL
+WEBHOOK_URL = "https://assistente-financeiro-bot-lep-1.onrender.com"  # Substitua pelo seu URL
 
 bot = Bot(TOKEN)
 app = Flask(__name__)
