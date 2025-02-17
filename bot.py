@@ -20,32 +20,50 @@ app = Flask(__name__)
 
 dispatcher = Dispatcher(bot, None, use_context=True)
 
-# Lista de gastos
+# Lista para armazenar os gastos (em memória)
 gastos = []
 
 def start(update: Update, context: CallbackContext):
     update.message.reply_text(
-        "Olá! Sou o Assistente Financeiro.\n"
-        "Envie um gasto no formato: 'nome_do_item valor'\n"
-        "Exemplo: 'camiseta 125'\n\n"
+        "Olá! Sou o Assistente Financeiro 🤖.\n\n"
+        "Envie um gasto no formato: `nome_do_item valor`\n"
+        "Exemplo: `camiseta 125,50`\n\n"
         "Para obter um relatório, envie:\n"
-        "- 'me envie os gastos diários'\n"
-        "- 'me envie os gastos semanais'\n"
-        "- 'me envie os gastos mensais'"
+        "- `me envie os gastos diários`\n"
+        "- `me envie os gastos semanais`\n"
+        "- `me envie os gastos mensais`",
+        parse_mode='Markdown'
     )
 
 def registrar_gasto(update: Update, context: CallbackContext):
     text = update.message.text.strip()
-    partes = text.rsplit(" ", 1)
+    partes = text.rsplit(" ", 1)  # Divide pelo último espaço
     
-    if len(partes) != 2 or not partes[1].isdigit():
-        update.message.reply_text("Formato inválido! Envie no formato: 'item valor' (Exemplo: 'camiseta 125')")
+    if len(partes) != 2:
+        update.message.reply_text(
+            "❌ Formato inválido! Use: `item valor` (Ex.: `camiseta 125,50`)",
+            parse_mode='Markdown'
+        )
         return
-    
-    item, valor = partes[0], int(partes[1])
+
+    item = partes[0]
+    # Permite valores com vírgula ou ponto
+    valor_str = partes[1].replace(',', '.')
+    try:
+        valor = float(valor_str)
+    except ValueError:
+        update.message.reply_text(
+            "❌ Valor inválido! Certifique-se de usar números (Ex.: `125,50`)",
+            parse_mode='Markdown'
+        )
+        return
+
     data = datetime.now()
     gastos.append({"item": item, "valor": valor, "data": data})
-    update.message.reply_text(f"Gasto registrado: {item} - R$ {valor}")
+    update.message.reply_text(
+        f"📌 Gasto registrado: *{item}* - R$ {valor:.2f} em {data.strftime('%d/%m/%Y %H:%M:%S')}",
+        parse_mode='Markdown'
+    )
 
 def gerar_relatorio(update: Update, periodo: str):
     agora = datetime.now()
@@ -53,22 +71,24 @@ def gerar_relatorio(update: Update, periodo: str):
         inicio = agora.replace(hour=0, minute=0, second=0, microsecond=0)
     elif periodo == "semanal":
         inicio = agora - timedelta(days=agora.weekday())
+        inicio = inicio.replace(hour=0, minute=0, second=0, microsecond=0)
     elif periodo == "mensal":
         inicio = agora.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     else:
-        update.message.reply_text("Período inválido!")
+        update.message.reply_text("❌ Período inválido!")
         return
-    
+
     gastos_filtrados = [g for g in gastos if g["data"] >= inicio]
     if not gastos_filtrados:
-        update.message.reply_text(f"Nenhum gasto registrado para o período {periodo}.")
+        update.message.reply_text(f"❌ Nenhum gasto registrado para o período {periodo}.")
         return
-    
+
     total = sum(g["valor"] for g in gastos_filtrados)
-    relatorio = f"Gastos {periodo}:\n"
-    relatorio += "\n".join([f"{g['item']} - R$ {g['valor']}" for g in gastos_filtrados])
-    relatorio += f"\nTotal: R$ {total}"
-    update.message.reply_text(relatorio)
+    relatorio = f"📝 *Gastos {periodo.capitalize()}:*\n\n"
+    for g in gastos_filtrados:
+        relatorio += f"📌 {g['item']} - R$ {g['valor']:.2f} em {g['data'].strftime('%d/%m/%Y %H:%M:%S')}\n"
+    relatorio += f"\n💰 *Total: R$ {total:.2f}*"
+    update.message.reply_text(relatorio, parse_mode='Markdown')
 
 def interpretar_mensagem(update: Update, context: CallbackContext):
     text = update.message.text.lower()
@@ -107,12 +127,11 @@ def set_webhook():
     else:
         logger.error("Falha ao configurar webhook!")
 
-# Configura o webhook antes do primeiro request (útil quando rodando com Gunicorn)
 @app.before_first_request
 def init_webhook():
     set_webhook()
 
-# Se for executado diretamente, inicia o servidor (não é chamado pelo Gunicorn)
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8443))
     app.run(host="0.0.0.0", port=port)
+
