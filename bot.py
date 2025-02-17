@@ -31,7 +31,9 @@ def start(update: Update, context: CallbackContext):
         "• `/entrada <descrição> <valor>` para registrar uma receita (Ex.: `/entrada Salário 2000,00`)\n"
         "• `/gasto <descrição> <valor>` para registrar uma despesa (Ex.: `/gasto Aluguel 800,00`)\n\n"
         "Para visualizar seu resumo financeiro, use:\n"
-        "• `/resumo`\n\n"
+        "• `/resumo`\n"
+        "• `/buscar <descrição>` para encontrar transações específicas\n"
+        "• `/buscar <data_inicial> <data_final>` para filtrar por período\n\n"
         "Obs.: O valor pode ser informado com vírgula ou ponto.",
         parse_mode='Markdown'
     )
@@ -95,9 +97,46 @@ def resumo(update: Update, context: CallbackContext):
     relatorio += f"💰 Saldo final: R$ {saldo:.2f}\n\n"
     relatorio += "*Transações:*\n"
 
-    # Ordena as transações por data (mais recentes primeiro)
     transacoes_ordenadas = sorted(transacoes, key=lambda x: x["data"], reverse=True)
-    for t in transacoes_ordenadas:
+    for t in transacoes_ordenadas[:10]:  # Mostra apenas as últimas 10 transações
+        icone = "💵" if t["tipo"] == "entrada" else "💸"
+        relatorio += f"{icone} ID {t['id']}: {t['descricao']} - R$ {t['valor']:.2f} em {t['data'].strftime('%d/%m/%Y %H:%M')}\n"
+
+    update.message.reply_text(relatorio, parse_mode='Markdown')
+
+def buscar_transacao(update: Update, context: CallbackContext):
+    args = context.args
+    if not args:
+        update.message.reply_text(
+            "🔍 Use `/buscar <descrição>` para buscar por nome.\n"
+            "📅 Ou use `/buscar <data_inicial> <data_final>` (Ex.: `/buscar 01/02/2024 10/02/2024`).",
+            parse_mode='Markdown'
+        )
+        return
+
+    filtro = " ".join(args)
+    
+    if len(args) == 2:
+        try:
+            data_inicio = datetime.strptime(args[0], "%d/%m/%Y")
+            data_fim = datetime.strptime(args[1], "%d/%m/%Y") + timedelta(days=1) - timedelta(seconds=1)
+        except ValueError:
+            update.message.reply_text("❌ Formato de data inválido! Use: `/buscar 01/02/2024 10/02/2024`.", parse_mode='Markdown')
+            return
+
+        transacoes_filtradas = [t for t in transacoes if data_inicio <= t["data"] <= data_fim]
+        periodo = f"entre {data_inicio.strftime('%d/%m/%Y')} e {data_fim.strftime('%d/%m/%Y')}"
+
+    else:
+        transacoes_filtradas = [t for t in transacoes if filtro.lower() in t["descricao"].lower()]
+        periodo = f"contendo '{filtro}'"
+
+    if not transacoes_filtradas:
+        update.message.reply_text(f"❌ Nenhuma transação encontrada {periodo}.", parse_mode='Markdown')
+        return
+
+    relatorio = f"🔍 *Resultados da busca {periodo}:*\n\n"
+    for t in transacoes_filtradas:
         icone = "💵" if t["tipo"] == "entrada" else "💸"
         relatorio += f"{icone} ID {t['id']}: {t['descricao']} - R$ {t['valor']:.2f} em {t['data'].strftime('%d/%m/%Y %H:%M')}\n"
 
@@ -108,31 +147,21 @@ dispatcher.add_handler(CommandHandler("start", start))
 dispatcher.add_handler(CommandHandler("entrada", registrar_entrada))
 dispatcher.add_handler(CommandHandler("gasto", registrar_gasto))
 dispatcher.add_handler(CommandHandler("resumo", resumo))
+dispatcher.add_handler(CommandHandler("buscar", buscar_transacao))
 
-# Endpoint para verificação simples
 @app.route("/", methods=["GET"])
 def home():
     return "Bot está rodando!", 200
 
-# Webhook para receber atualizações do Telegram
 @app.route(f"/{TOKEN}", methods=["POST"])
 def webhook():
-    try:
-        data = request.get_json()
-        logger.info(f"Recebido webhook: {data}")
-        update = Update.de_json(data, bot)
-        dispatcher.process_update(update)
-    except Exception as e:
-        logger.error(f"Erro no processamento da mensagem: {e}")
+    data = request.get_json()
+    update = Update.de_json(data, bot)
+    dispatcher.process_update(update)
     return "OK", 200
 
 def set_webhook():
-    webhook_url = f"{WEBHOOK_URL}{TOKEN}"
-    success = bot.set_webhook(url=webhook_url)
-    if success:
-        logger.info(f"Webhook configurado com sucesso: {webhook_url}")
-    else:
-        logger.error("Falha ao configurar webhook!")
+    bot.set_webhook(url=f"{WEBHOOK_URL}{TOKEN}")
 
 @app.before_first_request
 def init_webhook():
