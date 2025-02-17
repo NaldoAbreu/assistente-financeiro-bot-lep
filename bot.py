@@ -61,7 +61,7 @@ def registrar_gasto(update: Update, context: CallbackContext):
     data = datetime.now()
     gastos.append({"item": item, "valor": valor, "data": data})
     update.message.reply_text(
-        f"📌 Gasto registrado: *{item}* - R$ {valor:.2f} em {data.strftime('%d/%m/%Y %H:%M:%S')}",
+        f"📌 Gasto registrado: *{item}* - R$ {valor:.2f} em {data.strftime('%d/%m/%Y %H:%M')}",
         parse_mode='Markdown'
     )
 
@@ -86,7 +86,7 @@ def gerar_relatorio(update: Update, periodo: str):
     total = sum(g["valor"] for g in gastos_filtrados)
     relatorio = f"📝 *Gastos {periodo.capitalize()}:*\n\n"
     for g in gastos_filtrados:
-        relatorio += f"📌 {g['item']} - R$ {g['valor']:.2f} em {g['data'].strftime('%d/%m/%Y %H:%M:%S')}\n"
+        relatorio += f"📌 {g['item']} - R$ {g['valor']:.2f} em {g['data'].strftime('%d/%m/%Y %H:%M')}\n"
     relatorio += f"\n💰 *Total: R$ {total:.2f}*"
     update.message.reply_text(relatorio, parse_mode='Markdown')
 
@@ -134,4 +134,3 @@ def init_webhook():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8443))
     app.run(host="0.0.0.0", port=port)
-
